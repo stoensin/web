@@ -6,8 +6,8 @@ import (
 
 func TestWeb(t *testing.T) {
 	srv := NewServer("")
-	srv.Get("/rest/hello", func(c *THandler) {
-		c.RespondString("Hello, World")
+	srv.Get("/rest/hello", func(h *THandler) {
+		h.RespondString("Hello, World")
 		return
 	})
 	//srv.ShowRoute(true)

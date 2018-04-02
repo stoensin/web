@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"strings"
-	"vectors/logger"
+	//"vectors/logger"
 	"vectors/utils"
 	"vectors/web/template"
 )
@@ -89,9 +89,9 @@ type (
 		Response IResponseWriter //http.ResponseWriter
 		Request  *http.Request   //
 
-		Router   *TRouter
-		Route    *TRoute //执行本次Handle的Route
-		Logger   *logger.TLogger
+		Router *TRouter
+		Route  *TRoute //执行本次Handle的Route
+		//Logger   *logger.TLogger
 		Template *template.TTemplateSet // 概念改进  为Hd添加 hd.Template.Params.Set("模板数据",Val)/Get()/Del()
 
 		//PostBody []byte          //废弃 Post 整体数据
@@ -128,7 +128,7 @@ type (
 		Router *TRouter
 		Route  *TRoute //执行本次Handle的Route
 
-		Logger *logger.TLogger
+		//Logger *logger.TLogger
 
 		// Director must be a function which modifies
 		// the request into a new request to be sent
@@ -162,7 +162,7 @@ func NewContentBody(hd *THandler) (res *TContentBody) {
 		handler: hd,
 	}
 	body, err := ioutil.ReadAll(hd.Request.Body)
-	logger.LogErr(err)
+	logger.Err(err.Error())
 
 	res.data = body
 	return
@@ -215,7 +215,8 @@ func (self *TContentBody) AsBytes() []byte {
 func (self *TContentBody) AsMap() (result map[string]interface{}) {
 	result = make(map[string]interface{})
 	err := json.Unmarshal(self.data, &result)
-	if logger.LogErr(err) {
+	if err != nil {
+		logger.Err(err.Error())
 		return nil
 	}
 	return
@@ -361,7 +362,7 @@ func (self *THandler) connect(rw IResponseWriter, req *http.Request, Router *TRo
 	self.IResponseWriter = rw
 	self.Router = Router
 	self.Route = Route
-	self.Logger = Router.Server.Logger
+	//self.Logger = Router.Server.Logger
 	self.Template = Router.Template
 	self.TemplateSrc = ""
 	self.ContentType = ""
@@ -655,16 +656,16 @@ func (self *THandler) __RenderToResponse(aTemplateFile string, w http.ResponseWr
 	}
 
 	if self.Route.FilePath == "" {
-		err := self.Router.Template.RenderToWriter(filepath.Join(self.Router.Server.Config.TemplatesDir, aTemplateFile), lContext, w)
+		err := self.Router.Template.RenderToWriter(filepath.Join(TEMPLATE_DIR, aTemplateFile), lContext, w)
 		if err != nil {
-			logger.Logger.Err(err.Error())
-			//Trace("RenderToResponse:", filepath.Join(self.Router.Server.Config.ModulesDir, self.Route.FilePath, self.Router.Server.Config.TemplatesDir, aTemplateFile))
+			logger.Err(err.Error())
+			//Trace("RenderToResponse:", filepath.Join(MODULE_DIR, self.Route.FilePath,TEMPLATE_DIR, aTemplateFile))
 		}
 	} else {
-		err := self.Router.Template.RenderToWriter(filepath.Join(self.Router.Server.Config.ModulesDir, self.Route.FilePath, self.Router.Server.Config.TemplatesDir, aTemplateFile), lContext, w)
+		err := self.Router.Template.RenderToWriter(filepath.Join(MODULE_DIR, self.Route.FilePath, TEMPLATE_DIR, aTemplateFile), lContext, w)
 		if err != nil {
-			logger.Logger.Err(err.Error())
-			//Trace("RenderToResponse:", filepath.Join(self.Router.Server.Config.ModulesDir, self.Route.FilePath, self.Router.Server.Config.TemplatesDir, aTemplateFile))
+			logger.Err(err.Error())
+			//Trace("RenderToResponse:", filepath.Join(MODULE_DIR, self.Route.FilePath,TEMPLATE_DIR, aTemplateFile))
 		}
 	}
 }
@@ -678,10 +679,10 @@ func (self *THandler) RenderTemplate(aTemplateFile string, aArgs interface{}) {
 	}
 
 	if self.Route.FilePath == "" {
-		self.TemplateSrc = filepath.Join(self.Router.Server.Config.TemplatesDir, aTemplateFile)
+		self.TemplateSrc = filepath.Join(TEMPLATE_DIR, aTemplateFile)
 	} else {
-		self.TemplateSrc = filepath.Join(self.Router.Server.Config.ModulesDir, self.Route.FilePath, self.Router.Server.Config.TemplatesDir, aTemplateFile)
-		//self.TemplateSrc = filepath.Join(self.Route.FilePath, self.Router.Server.Config.TemplatesDir, aTemplateFile)
+		self.TemplateSrc = filepath.Join(MODULE_DIR, self.Route.FilePath, TEMPLATE_DIR, aTemplateFile)
+		//self.TemplateSrc = filepath.Join(self.Route.FilePath,TEMPLATE_DIR, aTemplateFile)
 
 	}
 	logger.Info("RenderTemplate", self.Route.FilePath, self.TemplateSrc)
@@ -700,7 +701,7 @@ func (self *THandler) RespondWithNotFound(message ...string) {
 // Responds with 404 Not Found
 func (self *THandler) RespondWithNotFoundPage(HtmlFile string) {
 	//self.Router.RenderTemplate(TEMPLATES_ROOT+"/"+HtmlFile, self, nil)
-	self.Router.Server.Template.RenderToWriter(filepath.Join(self.Router.Server.Config.ModulesDir, self.Route.Path, self.Router.Server.Config.TemplatesDir, HtmlFile), nil, self)
+	self.Router.Server.Template.RenderToWriter(filepath.Join(MODULE_DIR, self.Route.Path, TEMPLATE_DIR, HtmlFile), nil, self)
 }
 
 // Checks whether the HTTP method is GET or not
@@ -741,7 +742,7 @@ func (self *TProxyHandler) connect(rw IResponseWriter, req *http.Request, Router
 	self.IResponseWriter = rw
 	self.Router = Router
 	self.Route = Route
-	self.Logger = Router.Server.Logger
+	//self.Logger = Router.Server.Logger
 
 	director := func(req *http.Request) {
 		target := self.Route.Host
@@ -810,7 +811,7 @@ func (p *TProxyHandler) copyBuffer(dst io.Writer, src io.Reader, buf []byte) (in
 	for {
 		nr, rerr := src.Read(buf)
 		if rerr != nil && rerr != io.EOF {
-			p.Router.Logger.Err("httputil: ReverseProxy read error during body copy: %v", rerr)
+			logger.Err("httputil: ReverseProxy read error during body copy: %v", rerr)
 		}
 		if nr > 0 {
 			nw, werr := dst.Write(buf[:nr])

@@ -14,7 +14,7 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
-	"vectors/logger"
+	//"vectors/logger"
 	"vectors/utils"
 )
 
@@ -119,7 +119,7 @@ func GetModulePath(module string, downloaded bool, display_warning bool) (res st
 	// for adp in ad_paths:
 	//      if os.path.exists(opj(adp, module)) or os.path.exists(opj(adp, '%s.zip' % module)):
 	//         return opj(adp, module)
-	res = filepath.Join(AppPath, AppModuleDir)
+	res = filepath.Join(AppPath, MODULE_DIR)
 	//if _, err := os.Stat(res); err == nil {
 	//	return res
 	//}
@@ -128,7 +128,7 @@ func GetModulePath(module string, downloaded bool, display_warning bool) (res st
 	// if downloaded:
 	//    return opj(tools.config.addons_data_dir, module)
 	if display_warning {
-		logger.Logger.Warn(`module %s: module not found`, module)
+		logger.Warn(`module %s: module not found`, module)
 	}
 
 	return ""
@@ -253,7 +253,7 @@ func (self *TModule) url(aType RouteType, aMethod []string, aUrl string, aContro
 
 	aUrl = utils.Trim(aUrl)
 	if aUrl == "" {
-		logger.Logger.Err("the route must have a path")
+		logger.Err("the route must have a path")
 	} else if aUrl == "/" { // 添加Index页面
 		lUrl = lUrl //  相当于 /admin
 	} else {

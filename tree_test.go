@@ -1,9 +1,6 @@
 package web
 
 import (
-	//"bytes"
-	//"net/http"
-	//"net/http/httptest"
 	"fmt"
 	"testing"
 )

@@ -3,12 +3,13 @@ package web
 /*
 	Router 负责把所有的URL映射出去
 	1.提供全局变量操作
-	2.提供
+	2.提供路由管理
+	3.处理路由调用
 */
 
 import (
 	"context"
-	_template "html/template"
+	//_template "html/template"
 	"net"
 	"net/http"
 	"net/url"
@@ -20,7 +21,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"vectors/logger"
 	"vectors/utils"
 	"vectors/web/template"
 )
@@ -52,18 +52,13 @@ type (
 	// TRoute 路,表示一个Link 连接地址"../webgo/"
 	// 提供基础数据参数供Handler处理
 	TRoute struct {
-		ID       int64  // 在Tree里的Id号
-		Path     string // 网络路径
-		FilePath string // 短存储路径
-		Model    string // 模型/对象/模块名称 Tmodule/Tmodel, "Model.Action", "404"
-		Action   string // 动作名称[包含模块名，动作名] "Model.Action", "/index.html","/filename.png"
-		//TemplatePath string // 废弃
-		FileName string
-		Type     RouteType // Route 类型 决定合并的形式
-
-		// ReverseProxy
-		//Scheme         string
-		//Host           string
+		ID             int64  // 在Tree里的Id号
+		Path           string // 网络路径
+		FilePath       string // 短存储路径
+		Model          string // 模型/对象/模块名称 Tmodule/Tmodel, "Model.Action", "404"
+		Action         string // 动作名称[包含模块名，动作名] "Model.Action", "/index.html","/filename.png"
+		FileName       string
+		Type           RouteType // Route 类型 决定合并的形式
 		Host           *url.URL
 		isReverseProxy bool //# 是反向代理
 		isDynRoute     bool // 是否*动态路由   /base/*.html
@@ -76,20 +71,17 @@ type (
 
 	// TRouter 路由,路的集合.负责管理TRoute
 	TRouter struct {
-		I18n        *TI18n
-		Server      *TServer
-		Logger      *logger.TLogger
+		I18n   *TI18n
+		Server *TServer
+		//Logger      *logger.TLogger
 		Template    *template.TTemplateSet
 		TempleteVar map[string]interface{} // ！！！储存模板全局变量.将应用到说有模板中去
 		GVar        map[string]interface{} // ！！！全局变量. 需改进
-		//Sock        net.Listener           //保存套接字以供关闭
 
 		show_route bool
 
-		//Routes      []TRoute //废弃
 		tree       *TTree
 		middleware *TMiddlewareManager // 中间件
-		//beforeRoute reflect.Value //废弃 动作处理器
 
 		lock              sync.RWMutex
 		handlerPool       sync.Pool
@@ -140,12 +132,6 @@ func NewRouter() *TRouter {
 
 	return lRouter
 }
-
-/*
-func (self *TRoute) IsNil() bool {
-	return !(len(self.Controllers) == 0)
-}
-*/
 
 // TODO 管理Ctrl 顺序 before center after
 // 根据不同Action 名称合并Ctrls
@@ -206,25 +192,25 @@ func (self *TRoute) mapMiddleware(aHandlerType reflect.Type) int64 {
  初始化所有加载工作
 */
 func (self *TRouter) Init() {
+	/*
+		// 创建并初始化[国际化]
+		if self.Server.Config.UseI18N {
+			logger.Info("Use I18N")
+			self.I18n = NewI18n("XWeb") // I18N Name
+			lPath := filepath.Join(self.Server.Config.RootPath, self.Server.Config.LocaleDir)
+			if err := self.I18n.Init(lPath, self.Server.Config.LangCode); err != nil {
+				logger.Err(err.Error())
+			}
 
-	// 创建并初始化[国际化]
-	if self.Server.Config.UseI18N {
-		self.Logger.Info("Use I18N")
-		self.I18n = NewI18n("XWeb") // I18N Name
-		lPath := filepath.Join(self.Server.Config.RootPath, self.Server.Config.LocaleDir)
-		if err := self.I18n.Init(lPath, self.Server.Config.LangCode); err != nil {
-			self.Logger.ErrLn("I18N(Init):", err)
+			lTemplateFuncs := map[string]interface{}{
+				"trans": func(aText string) _template.HTML {
+					return _template.HTML(self.I18n.Translate(aText))
+				},
+			}
+
+			self.Template.AddFuncs(lTemplateFuncs)
 		}
-
-		lTemplateFuncs := map[string]interface{}{
-			"trans": func(aText string) _template.HTML {
-				return _template.HTML(self.I18n.Translate(aText))
-			},
-		}
-
-		self.Template.AddFuncs(lTemplateFuncs)
-	}
-
+	*/
 	//self.RegisterModules(admin.Admin)
 	if self.Server.Config.PrintRouterTree {
 		self.tree.PrintTrees()
@@ -232,34 +218,10 @@ func (self *TRouter) Init() {
 
 }
 
-/*
-func (self *TRouter) RegisterModules(obj interface{}) {
-	self.lock.Lock()
-	defer self.lock.Unlock()
-
-	Trace("RegisterModules:", reflect.TypeOf(obj))
-	if m, ok := obj.(*TModule); ok { //检查是否有IRestCreator.Create(hd *TRestHandle)
-		self.Routes = append(self.Routes, m.Routes...) // 注意要加[省略号] !!!暂时有重复合并问题
-		//self.Routes = MergeMaps(self.Routes, m.Routes) // 合并两个Maps安全点
-		//#创建文件夹
-		//os.Mkdir("./modules/aa", 0700) //>>>>>>>>>>
-		mdlPath := filepath.Join(self.Server.Config.ModulesDir, m.Path)
-		err := os.Mkdir(mdlPath, 0700)
-		if os.IsExist(err) {
-		}
-		os.Mkdir(filepath.Join(mdlPath, self.Server.Config.StaticDir), 0700)
-		os.Mkdir(filepath.Join(mdlPath, self.Server.Config.TemplatesDir), 0700)
-
-		//Trace("OK")
-	} else {
-		Debug("RegisterModules:Object is not useable!")
-	}
-	//log.Println("r", self.Routes)
-}
-*/
+// 注册功能模块到路由器
 func (self *TRouter) RegisterModule(aMd IModule, build_path ...bool) {
 	if aMd == nil {
-		self.Logger.WarnLn("RegisterModule is nil")
+		logger.Panic("RegisterModule is nil")
 		return
 	}
 
@@ -268,29 +230,20 @@ func (self *TRouter) RegisterModule(aMd IModule, build_path ...bool) {
 		a.Register()
 	}
 
-	///lRoutes := aMd.GetRoutes()
 	lModuleFilePath := utils.Trim(aMd.GetFilePath())
-
-	//self.Logger.("RegisterModules:", reflect.TypeOf(aMd))
-
 	self.lock.Lock() //<-锁
 	self.tree.Conbine(aMd.GetRoutes())
-	///self.Routes = append(self.Routes, lRoutes...) // 注意要加[省略号] !!!暂时有重复合并问题
-	//self.Routes = MergeMaps(self.Routes, m.Routes) // 合并两个Maps安全点
-
 	self.lock.Unlock() //<-
 
 	//#创建文件夹
-	//os.Mkdir("./modules/aa", 0700) //>>>>>>>>>>
-
 	// The Path must be not blank.
 	// <待优化静态路径管理>必须不是空白路径才能组合正确
 	if len(build_path) > 0 && build_path[0] && len(lModuleFilePath) > 0 {
-		lModuleFilePath := filepath.Join(self.Server.Config.ModulesDir, lModuleFilePath)
+		lModuleFilePath := filepath.Join(MODULE_DIR, lModuleFilePath)
 		err := os.Mkdir(lModuleFilePath, 0700)
 		if err != nil {
-			os.Mkdir(filepath.Join(lModuleFilePath, self.Server.Config.StaticDir), 0700)
-			os.Mkdir(filepath.Join(lModuleFilePath, self.Server.Config.TemplatesDir), 0700)
+			os.Mkdir(filepath.Join(lModuleFilePath, STATIC_DIR), 0700)
+			os.Mkdir(filepath.Join(lModuleFilePath, TEMPLATE_DIR), 0700)
 		}
 	}
 
@@ -334,23 +287,22 @@ func (self *TRouter) safelyCall(function reflect.Value, args []reflect.Value, hd
 				self.routePanic(hd, aActionValue)
 				//e = err
 				//resp = nil
-				self.Logger.ErrLn("Handler crashed with error : ", err)
+				logger.ErrLn("Handler crashed with error : ", err)
 				for i := 1; ; i++ {
 					_, file, line, ok := runtime.Caller(i)
 					if !ok {
 						break
 					}
-					self.Logger.ErrLn(file, line)
+					logger.ErrLn(file, line)
 				}
 			} else {
 				// go back to panic
-				self.Logger.WarnLn("Panic:SafelyCall")
-				panic(err)
+				//logger.WarnLn("Panic:SafelyCall")
+				logger.Panic("", err)
 			}
 		}
 	}()
 	//调用函数 >>>输出HTML数据
-
 	function.Call(args)
 }
 
@@ -374,11 +326,11 @@ func (self *TRouter) routeStatic(req *http.Request, w *TResponseWriter) {
 		// /static/js/base.js
 		// /ModuleName/static/js/base.js
 		lDirs := strings.Split(lPath, "/")
-		if strings.EqualFold(lDirs[1], self.Server.Config.StaticDir) {
-			//if strings.HasPrefix(lPath, "/"+self.Server.Config.StaticDir) { // 如果请求是 /Static/js/base.js
+		if strings.EqualFold(lDirs[1], STATIC_DIR) {
+			//if strings.HasPrefix(lPath, "/"+STATIC_DIR) { // 如果请求是 /Static/js/base.js
 			/* static_file = filepath.Join(
 			self.Server.Config.RootPath,                           // c:\project\
-			self.Server.Config.StaticDir,                          // c:\project\static\
+			STATIC_DIR,                          // c:\project\static\
 			strings.Join(urlPath[1:], string(filepath.Separator)), // c:\project\static\js\base.js
 			fileName)
 			*/
@@ -388,18 +340,18 @@ func (self *TRouter) routeStatic(req *http.Request, w *TResponseWriter) {
 		} else { // 如果请求是 products/Static/js/base.js
 			/* static_file = filepath.Join(
 			self.Server.Config.RootPath,                           // c:\project\
-			self.Server.Config.ModulesDir,                         // c:\project\Modules
+			MODULE_DIR,                         // c:\project\Modules
 			urlPath[0],                                            // c:\project\Modules\products\
-			self.Server.Config.StaticDir,                          // c:\project\Modules\products\static\
+			STATIC_DIR,                          // c:\project\Modules\products\static\
 			strings.Join(urlPath[1:], string(filepath.Separator)), // c:\project\Modules\products\static\js\base.js
 			fileName)
 			*/
 
-			//Debug("lDirsD", lDirs, self.Server.Config.StaticDir, string(os.PathSeparator))
+			//Debug("lDirsD", lDirs, STATIC_DIR, string(os.PathSeparator))
 			// 再次检查 Module Name 后必须是 /static 目录
-			if strings.EqualFold(lDirs[2], self.Server.Config.StaticDir) {
+			if strings.EqualFold(lDirs[2], STATIC_DIR) {
 				lFilePath = filepath.Join(
-					self.Server.Config.ModulesDir, // c:\project\Modules
+					MODULE_DIR, // c:\project\Modules
 					req.URL.Path)
 			} else {
 				http.NotFound(w, req)
@@ -411,7 +363,7 @@ func (self *TRouter) routeStatic(req *http.Request, w *TResponseWriter) {
 
 	// 当模块路径无该文件时，改为程序static文件夹
 	if !utils.FileExists(lFilePath) {
-		lIndex := strings.Index(lFilePath, self.Server.Config.StaticDir)
+		lIndex := strings.Index(lFilePath, STATIC_DIR)
 		if lIndex != -1 {
 			lFilePath = lFilePath[lIndex-1:]
 
@@ -421,11 +373,12 @@ func (self *TRouter) routeStatic(req *http.Request, w *TResponseWriter) {
 	//Info("static_file", static_file)
 	if req.Method == "GET" || req.Method == "HEAD" {
 		lFilePath = filepath.Join(
-			self.Server.Config.RootPath,
+			//self.Server.Config.RootPath,
+			AppPath,
 			lFilePath)
 		// 当程序文件夹无该文件时
 		if !utils.FileExists(lFilePath) {
-			self.Logger.DbgLn("Not Found", lFilePath)
+			//self.Logger.DbgLn("Not Found", lFilePath)
 			http.NotFound(w, req)
 			return
 		}
@@ -688,10 +641,8 @@ func (self *TRouter) routeHandler(req *http.Request, w *TResponseWriter) {
 	// # match route from tree
 	lRoute, lParam := self.tree.Match(req.Method, lPath)
 	if self.show_route {
-		self.Logger.Info("[Path]%v [Route]%v", lPath, lRoute.FilePath)
+		logger.Info("[Path]%v [Route]%v", lPath, lRoute.FilePath)
 	}
-
-	self.Logger.Info("[Path]%v [Route]%v", lPath, lRoute)
 
 	//opy(lParam, Param)
 	if lRoute == nil {
@@ -778,10 +729,10 @@ func (self *TRouter) routeHandler(req *http.Request, w *TResponseWriter) {
 
 		CtrlValidable = lActionVal.IsValid()
 		if CtrlValidable {
-			self.Logger.Info("routeBefore")
+			//self.Logger.Info("routeBefore")
 			self.routeBefore(lHandler, lActionVal)
 		}
-		logger.Infof("safelyCall %v ,%v", lHandler.Response.Written(), args)
+		//logger.Infof("safelyCall %v ,%v", lHandler.Response.Written(), args)
 		if !lHandler.Response.Written() {
 			//self.Logger.Info("safelyCall")
 			// -- execute Handler or Panic Event
@@ -816,9 +767,9 @@ func (self *TRouter) routeHandler(req *http.Request, w *TResponseWriter) {
 	//lHandler.SetHeader(true, "Content-Type", "text/html; charset=utf-8")
 	if lHandler.TemplateSrc != "" {
 		//添加[static]静态文件路径
-		logger.Dbg(self.Server.Config.StaticDir, path.Join(utils.FilePathToPath(lRoute.FilePath), self.Server.Config.StaticDir))
-		//	self.AddVar(self.Server.Config.StaticDir, path.Join(utils.FilePathToPath(lRoute.FilePath), self.Server.Config.StaticDir)) //添加[static]静态文件路径
-		lHandler.RenderArgs[self.Server.Config.StaticDir] = path.Join(utils.FilePathToPath(lRoute.FilePath), self.Server.Config.StaticDir)
+		logger.Dbg(STATIC_DIR, path.Join(utils.FilePathToPath(lRoute.FilePath), STATIC_DIR))
+		//	self.AddVar(STATIC_DIR, path.Join(utils.FilePathToPath(lRoute.FilePath), STATIC_DIR)) //添加[static]静态文件路径
+		lHandler.RenderArgs[STATIC_DIR] = path.Join(utils.FilePathToPath(lRoute.FilePath), STATIC_DIR)
 	}
 
 	// 结束Route并返回内容
@@ -903,7 +854,7 @@ func (self *TRouter) routeProxy(route *TRoute, param Params, req *http.Request, 
 
 	res, err := transport.RoundTrip(outreq)
 	if err != nil {
-		self.Logger.Err("http: proxy error: %v", err)
+		logger.Err("http: proxy error: %v", err)
 		rw.WriteHeader(http.StatusBadGateway)
 		return
 	}
@@ -924,7 +875,7 @@ func (self *TRouter) routeProxy(route *TRoute, param Params, req *http.Request, 
 
 	if lHandler.ModifyResponse != nil {
 		if err := lHandler.ModifyResponse(res); err != nil {
-			self.Logger.Err("http: proxy error: %v", err)
+			logger.Err("http: proxy error: %v", err)
 			rw.WriteHeader(http.StatusBadGateway)
 			return
 		}

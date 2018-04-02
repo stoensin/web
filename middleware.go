@@ -3,14 +3,16 @@ package web
 /**
 中间件控制器
 
-TWebCtrl struct {
-	event.TEvent
-}
+Sample:
 
-// 传递的必须为非指针的值(self TWebCtrl)
-func (self TWebCtrl) Before(hd *web.THandler) {
+		TWebCtrl struct {
+			event.TEvent
+		}
 
-}
+		// 传递的必须为非指针的值(self TWebCtrl)
+		func (self TWebCtrl) Before(hd *web.THandler) {
+
+		}
 
 */
 
@@ -70,10 +72,8 @@ func (self *TMiddlewareManager) Add(key string, value IMiddleware) {
 	if _, exsit := self.middlewares[key]; !exsit {
 		self.middlewares[key] = value
 		self.Names = append(self.Names, key) // # 保存添加顺序
-		//self.Names = append(self.Names, "gsdfgsf")
-		//Warn("TMiddlewareManager", self.Names)
 	} else {
-		fmt.Println("key:" + key + " already exists")
+		logger.Err("key:" + key + " already exists")
 	}
 }
 
