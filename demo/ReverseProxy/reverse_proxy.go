@@ -14,7 +14,7 @@ func (self ctrls) hello_world(hd *web.THandler) {
 }
 
 func main() {
-	srv1 := web.NewServer("")
+	srv1 := web.NewServer("server1")
 	srv1.ShowRoute(true)
 	srv1.Get("/hello", ctrls.hello_world)
 	srv1.Get("/hello2", func(c *web.THandler) {
@@ -26,7 +26,7 @@ func main() {
 
 	srv2 := web.NewServer("")
 	srv2.ShowRoute(true)
-	srv2.Logger.SetLevel(4)
+	//srv2.Logger.SetLevel(4)
 	srv2.Proxy(nil, "/hello", "http", "localhost:8080")
 	srv2.Proxy(nil, "/s", "https", "www.baidu.com")
 	srv2.Listen(":8888")

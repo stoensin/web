@@ -162,11 +162,14 @@ func NewContentBody(hd *THandler) (res *TContentBody) {
 		handler: hd,
 	}
 	body, err := ioutil.ReadAll(hd.Request.Body)
-	logger.Err(err.Error())
+	if err != nil {
+		logger.Err("Read request body faild with an error : %s!", err.Error())
+	}
 
 	res.data = body
 	return
 }
+
 func NewParamsSet(hd *THandler) *TParamsSet {
 	return &TParamsSet{
 		handler: hd,

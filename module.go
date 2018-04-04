@@ -7,7 +7,7 @@ package web
 */
 
 import (
-	"net/url"
+	urls "net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -41,8 +41,9 @@ type (
 	//模块类-模块可以在任何地方创建,并最终归集到Router里.
 	TModule struct {
 		Parent *TModule
+		Tree   *TTree
 
-		// attr
+		// attrs
 		Name        string // module name <dir name> or <named>
 		Summary     string
 		Description string
@@ -57,8 +58,6 @@ type (
 		Path     string // URL 路径
 		FilePath string // 短文件系统路径-当前文件夹名称
 		// lock     sync.RWMutex
-		// Routes   []TRoute //废弃
-		Tree *TTree
 
 		//beforeRoute reflect.Value // 废弃动 作处理器
 		//afterRoute  reflect.Value // 废弃 动作处理器
@@ -80,7 +79,7 @@ This ensures something like ``import crm`` (or even
 PYTHONPATH.
 """*/
 
-func initialize_sys_path() {
+func __initialize_sys_path() {
 
 	/*
 	   global ad_paths
@@ -240,7 +239,12 @@ func (self *TModule) SetParent(parent *TModule) {
 /*
 pos: true 为插入Before 反之After
 */
-func (self *TModule) url(aType RouteType, aMethod []string, aUrl string, aController interface{}, scheme string, host string) (Route *TRoute) {
+func (self *TModule) url(rote_type RouteType, aMethod []string, url string, controller interface{}, scheme string, host string) *TRoute {
+	if rote_type != ProxyRoute && controller == nil {
+		logger.Panic("the route must binding a controller!")
+	}
+
+	/* 有代商议废除
 	lUrl := ""
 
 	// 组合父系URL路径
@@ -251,26 +255,27 @@ func (self *TModule) url(aType RouteType, aMethod []string, aUrl string, aContro
 		lUrl = strings.Trim(path.Join(self.Parent.Name, self.Name), " ")
 	}
 
-	aUrl = utils.Trim(aUrl)
-	if aUrl == "" {
+	url = utils.Trim(url)
+	if url == "" {
 		logger.Err("the route must have a path")
-	} else if aUrl == "/" { // 添加Index页面
+	} else if url == "/" { // 添加Index页面
 		lUrl = lUrl //  相当于 /admin
 	} else {
-		lUrl = utils.JoinURL(lUrl, aUrl)
+		lUrl = utils.JoinURL(lUrl, url)
 	}
+	*/
 
 	// 修整Url > /+Url
-	if !strings.HasPrefix(lUrl, "/") && lUrl != "/" {
-		lUrl = "/" + lUrl
+	if !strings.HasPrefix(url, "/") && url != "/" {
+		url = "/" + url
 	}
 
-	Route = &TRoute{
-		Path:     lUrl,
+	route := &TRoute{
+		Path:     url,
 		FilePath: self.FilePath,
 		Model:    self.Name,
 		Action:   "", //
-		Type:     aType,
+		Type:     rote_type,
 		//HookCtrl: make([]TMethodType, 0),
 		Ctrls: make([]TMethodType, 0),
 		//Host:     host,
@@ -279,91 +284,88 @@ func (self *TModule) url(aType RouteType, aMethod []string, aUrl string, aContro
 	}
 	// # is it proxy route
 	if scheme != "" && host != "" {
-		Route.Host = &url.URL{
+		route.Host = &urls.URL{
 			Scheme: scheme,
 			Host:   host,
 		}
-		Route.isReverseProxy = true
+		route.isReverseProxy = true
 	}
 
 	lValueType := TMethodType{
-		FuncType: reflect.TypeOf(aController)}
+		FuncType: reflect.TypeOf(controller)}
 
 	//handler URL函数
-	if fv, ok := aController.(reflect.Value); ok { //****得到函数参数
+	if fv, ok := controller.(reflect.Value); ok { //****得到函数参数
 		lValueType.Func = fv
 	} else {
-		lValueType.Func = reflect.ValueOf(aController)
+		lValueType.Func = reflect.ValueOf(controller)
 	}
 
-	//Route.MainCtrl = append(Route.MainCtrl, lValueType)
-	Route.MainCtrl = lValueType
-	Route.Ctrls = append(Route.Ctrls, Route.MainCtrl)
-	//logger.Dbg("url", Route.MainCtrl, aMethod)
+	//route.MainCtrl = append(route.MainCtrl, lValueType)
+	route.MainCtrl = lValueType
+	route.Ctrls = append(route.Ctrls, route.MainCtrl)
+	//logger.Dbg("url", route.MainCtrl, aMethod)
 	for _, m := range aMethod {
-		self.Tree.AddRoute(m, lUrl, Route)
+		self.Tree.AddRoute(m, url, route)
 	}
 
-	return
+	return route
 }
 
-func (self *TModule) Get(aUrl string, aHandler interface{}) *TRoute {
-	return self.url(CommomRoute, []string{"GET", "HEAD"}, aUrl, aHandler, "", "")
+func (self *TModule) Get(url string, controller interface{}) *TRoute {
+	return self.url(CommomRoute, []string{"GET", "HEAD"}, url, controller, "", "")
 }
 
-func (self *TModule) Post(aUrl string, aHandler interface{}) *TRoute {
+func (self *TModule) Post(url string, controller interface{}) *TRoute {
 	/*//#1 获得Dir 名称
 	if utils.Trim(self.FilePath) == "" {
 		self.FilePath = utils.CurDirName()
 	}*/
 
-	return self.url(CommomRoute, []string{"POST"}, aUrl, aHandler, "", "")
+	return self.url(CommomRoute, []string{"POST"}, url, controller, "", "")
 }
 
-func (self *TModule) Head(aUrl string, aHandler interface{}) *TRoute {
-	return self.url(CommomRoute, []string{"HEAD"}, aUrl, aHandler, "", "")
+func (self *TModule) Head(url string, controller interface{}) *TRoute {
+	return self.url(CommomRoute, []string{"HEAD"}, url, controller, "", "")
 }
 
-func (self *TModule) Options(aUrl string, aHandler interface{}) *TRoute {
-	return self.url(CommomRoute, []string{"OPTIONS"}, aUrl, aHandler, "", "")
+func (self *TModule) Options(url string, controller interface{}) *TRoute {
+	return self.url(CommomRoute, []string{"OPTIONS"}, url, controller, "", "")
 }
 
-func (self *TModule) Trace(aUrl string, aHandler interface{}) *TRoute {
-	return self.url(CommomRoute, []string{"TRACE"}, aUrl, aHandler, "", "")
+func (self *TModule) Trace(url string, controller interface{}) *TRoute {
+	return self.url(CommomRoute, []string{"TRACE"}, url, controller, "", "")
 }
 
-func (self *TModule) Patch(aUrl string, aHandler interface{}) *TRoute {
-	return self.url(CommomRoute, []string{"PATCH"}, aUrl, aHandler, "", "")
+func (self *TModule) Patch(url string, controller interface{}) *TRoute {
+	return self.url(CommomRoute, []string{"PATCH"}, url, controller, "", "")
 }
 
-func (self *TModule) Delete(aUrl string, aHandler interface{}) *TRoute {
-	return self.url(CommomRoute, []string{"DELETE"}, aUrl, aHandler, "", "")
+func (self *TModule) Delete(url string, controller interface{}) *TRoute {
+	return self.url(CommomRoute, []string{"DELETE"}, url, controller, "", "")
 }
 
-func (self *TModule) Put(aUrl string, aHandler interface{}) *TRoute {
-	return self.url(CommomRoute, []string{"PUT"}, aUrl, aHandler, "", "")
+func (self *TModule) Put(url string, controller interface{}) *TRoute {
+	return self.url(CommomRoute, []string{"PUT"}, url, controller, "", "")
 }
 
 // 重组添加模块[URL]
-func (self *TModule) Url(url string, handler interface{}) (Route *TRoute) {
-	if handler != nil {
-		Route = self.url(CommomRoute, HttpMethods, url, handler, "", "")
-	}
-	return
+func (self *TModule) Url(url string, controller interface{}) *TRoute {
+	return self.url(CommomRoute, HttpMethods, url, controller, "", "")
 }
 
 //
 // @ Proxy(nil, "/", "https", "www.baidu.com")
-func (self *TModule) Proxy(methods []string, url string, scheme string, host string) (Route *TRoute) {
-	if host != "" && scheme != "" && url != "" {
-		if methods == nil {
-			methods = HttpMethods
-		}
-
-		Route = self.url(CommomRoute, methods, url, nil, scheme, host)
+func (self *TModule) Proxy(methods []string, url string, scheme string, host string) *TRoute {
+	if host == "" || scheme == "" || url == "" {
+		logger.Panic("all the args must correct and not blank!")
 	}
 
-	return
+	if methods == nil {
+		methods = HttpMethods
+	}
+
+	return self.url(ProxyRoute, methods, url, nil, scheme, host)
 }
 
 /*
@@ -372,22 +374,10 @@ func (self *TModule) Proxy(methods []string, url string, scheme string, host str
 	xxx/xxx/(:name)
 	xxx/xxx/*
 */
-func (self *TModule) HookBefore(aMethods []string, url string, handler interface{}) {
-	if handler != nil {
-		self.url(HookBeforeRoute, aMethods, url, handler, "", "")
-	}
+func (self *TModule) HookBefore(methods []string, url string, controller interface{}) {
+	self.url(HookBeforeRoute, methods, url, controller, "", "")
 }
 
-func (self *TModule) HookAfter(aMethods []string, url string, handler interface{}) {
-	if handler != nil {
-		self.url(HookAfterRoute, aMethods, url, handler, "", "")
-	}
-}
-
-// 废弃 相同路径直接覆盖 提供代替其他URL的可能
-func (self *TModule) __Replace(aMethods []string, url string, handler interface{}) {
-	if handler != nil {
-		self.url(ReplaceRoute, aMethods, url, handler, "", "")
-	}
-
+func (self *TModule) HookAfter(methods []string, url string, controller interface{}) {
+	self.url(HookAfterRoute, methods, url, controller, "", "")
 }

@@ -11,6 +11,7 @@ import (
 	"runtime/pprof"
 	"strconv"
 	"time"
+	"vectors/logger"
 	"vectors/web"
 )
 
@@ -106,7 +107,7 @@ func CPUProfile(hd *web.THandler) {
 	if lSec == 0 {
 		lSec = 120
 	}
-	hd.Logger.InfoLn(lSec, lParams.AsInteger("seconds"))
+	logger.Info(lSec, lParams.AsInteger("seconds"))
 	time.Sleep(time.Duration(lSec) * time.Second)
 
 	// 结束

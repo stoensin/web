@@ -49,17 +49,19 @@ import (
 	log "github.com/VectorsOrigin/logger"
 )
 
+// 用于标记服务器创建标记是否重复
+var ServerNames []string
+
 type (
 	TServer struct {
 		TModule
 		GVar map[string]interface{} //全局变量. 废弃
 
-		Config *TConfig // 配置类
-		Router *TRouter // 路由类
-		//Logger   *logger.TLogger        // 日志类
+		Config   *TConfig               // 配置类
+		Router   *TRouter               // 路由类
 		Template *template.TTemplateSet // 模板类
-
-		debugMode bool
+		//Logger   *logger.TLogger        // 日志类
+		//debugMode bool
 	}
 )
 
@@ -68,10 +70,27 @@ func Version() string {
 }
 
 // 新建一个记录器
-func NewServer(configFile string) *TServer {
+// 服务器名称
+func NewServer(name ...string) *TServer {
+	// 确定服务器名称
+	var server_name string
+	if len(name) != 0 {
+		server_name = strings.ToLower(name[0])
+	}
+
+	if server_name == "" {
+		server_name = "server"
+	}
+
+	// 验校服务名称
+	if utils.InStrings(server_name, ServerNames...) != -1 {
+		logger.Panic("Server %s is existing in the list %v", server_name, ServerNames)
+	}
+	ServerNames = append(ServerNames, server_name)
+
 	srv := &TServer{
-		TModule: *NewModule(nil, ""),
-		Config:  NewConfig(configFile),
+		TModule: *NewModule(nil, server_name),
+		Config:  NewConfig(),
 		//Logger:   logger.NewLogger(""),
 		Router:   NewRouter(),
 		Template: template.NewTemplateSet(),
@@ -91,7 +110,7 @@ func NewServer(configFile string) *TServer {
 // 调试模式
 // 关闭所有缓存
 func (self *TServer) Debug(debug_mode bool) {
-	self.debugMode = debug_mode
+	self.Config.DebugMode = debug_mode
 	if debug_mode {
 		logger.SetLevel(log.LevelDebug)
 		//self.Router.
@@ -104,57 +123,90 @@ func (self *TServer) Debug(debug_mode bool) {
 
 }
 
-func (self *TServer) _fmtAddr(aAddr []string) string {
+func (self *TServer) parse_addr(addr []string) (host string, port int) {
 	// 如果已经配置了端口则不使用
-	if self.Config.Port < 10 {
-		self.Config.Addr = ""
-		self.Config.Port = 8000
-
-		if len(aAddr) != 0 {
-			lAddrSplitter := strings.Split(aAddr[0], ":")
-			if len(lAddrSplitter) != 2 {
-				logger.Err("Address %s is unavailable!", aAddr[0])
-
-			} else {
-				self.Config.Addr = lAddrSplitter[0]
-				self.Config.Port = utils.StrToInt64(lAddrSplitter[1])
-			}
+	if len(addr) != 0 {
+		lAddrSplitter := strings.Split(addr[0], ":")
+		if len(lAddrSplitter) != 2 {
+			logger.Err("Address %s of server %s is unavailable!", addr[0], self.Name)
+		} else {
+			host = lAddrSplitter[0]
+			port = utils.StrToInt(lAddrSplitter[1])
 		}
 	}
 
-	return fmt.Sprintf("%s:%d", self.Config.Addr, self.Config.Port)
+	return
 }
-func (self *TServer) Listen(aAddr ...string) {
+
+func (self *TServer) Listen(addr ...string) {
+	// 解析地址
+	host, port := self.parse_addr(addr)
+	logger.Dbg("", host, port)
+	self.Config.LoadFromFile(CONFIG_FILE_NAME)
+	// 确认配置已经被加载加载
+	// 配置最终处理
+	sec, err := self.Config.GetSection(self.Name)
+	if err != nil {
+
+		// 存储默认
+		sec, err = self.Config.NewSection(self.Name)
+		if err != nil {
+			logger.Panic("creating ini' section faild! Name:%s Error:%s", self.Name, err.Error())
+		}
+		if host != "" {
+			self.Config.Host = host
+		}
+		self.Config.Port = port
+		sec.ReflectFrom(self.Config)
+		//self.Config.Save()
+
+	}
+
+	// 映射到服务器配置结构里
+	sec.MapTo(self.Config) // 加载
+	self.Config.Save()     // 保存文件
+
 	//注册主Route
 	self.Router.RegisterModule(self)
 	self.Router.Init()
-	lAddr := self._fmtAddr(aAddr)
-
 	// 阻塞监听
-	err := http.ListenAndServe(lAddr, self.Router)
-	if err != nil {
-		logger.Panic("start server faild : %s", err)
-	}
-
 	// 显示系统信息
-	logger.Info("Listening on http %s", lAddr)
+	new_addr := fmt.Sprintf("%s:%d", self.Config.Host, self.Config.Port)
+	logger.Info("Listening on address: %s", new_addr)
+	if self.Config.EnabledTLS {
+		if self.Config.TLSCertFile == "" || self.Config.TLSKeyFile == "" {
+			logger.Panic("lost cert file or key file for TLS connection!")
+		}
+
+		err := http.ListenAndServeTLS(new_addr, self.Config.TLSCertFile, self.Config.TLSKeyFile, self.Router)
+		if err != nil {
+			logger.Panic("start server faild : %s", err)
+		}
+
+	} else {
+		err := http.ListenAndServe(new_addr, self.Router)
+		if err != nil {
+			logger.Panic("start server faild : %s", err)
+		}
+	}
 }
 
-func (self *TServer) ListenTLS(certFile, keyFile string, aAddr ...string) {
-	//注册主Route
-	self.Router.RegisterModule(self)
+// 废弃
+func (self *TServer) __ListenTLS(certFile, keyFile string, addr ...string) {
+	/*	//注册主Route
+		self.Router.RegisterModule(self)
+		self.Router.Init()
+		self.Config.Init()
+		lAddr := self.parse_addr(addr)
+		// 阻塞监听
+		err := http.ListenAndServeTLS(lAddr, certFile, keyFile, self.Router)
+		if err != nil {
+			logger.Panic("start server faild : %s", err)
+		}
 
-	self.Router.Init()
-	lAddr := self._fmtAddr(aAddr)
-
-	// 阻塞监听
-	err := http.ListenAndServeTLS(lAddr, certFile, keyFile, self.Router)
-	if err != nil {
-		logger.Panic("start server faild : %s", err)
-	}
-
-	// 显示系统信息
-	logger.Info("listening on https %s", lAddr)
+		// 显示系统信息
+		logger.Info("listening on https %s", lAddr)
+	*/
 }
 
 func (self *TServer) ShowRoute(sw bool) {

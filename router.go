@@ -34,7 +34,7 @@ const (
 	HookBeforeRoute
 	HookAfterRoute
 	ReplaceRoute // the route replace orgin
-
+	ProxyRoute
 )
 
 type (

@@ -26,7 +26,10 @@ type (
 		RecoverPanic          bool   `ini:"enabled_recover_panic"`
 		PrintRouterTree       bool   `ini:"enabled_print_router_tree"`
 		Host                  string `ini:"host"` //端口
-		Port                  int64  `ini:"port"` //端口
+		Port                  int    `ini:"port"` //端口
+		EnabledTLS            bool   `ini:"enabled_tls"`
+		TLSCertFile           string `ini:"tls_cert_file"`
+		TLSKeyFile            string `ini:"tls_key_file"`
 		CookieSecret          string
 		DefaultDateFormat     string `ini:default_date_format`
 		DefaultDateTimeFormat string `ini:default_date_time_format`
@@ -60,6 +63,7 @@ var (
 		ModulePath     = path.Join(SERVER_ROOT, "/module")   // 模板路径
 	*/
 
+	cfg = ini.Empty()
 	// 固定变量
 	// App settings.
 	AppVer      string // #程序版本
@@ -108,19 +112,28 @@ func init() {
 }
 
 // 新建一个配置类
-func NewConfig(file_name string) *TConfig {
+// 指定文件名时自动加载 不给名字手动加载
+func NewConfig(file_name ...string) *TConfig {
 	config := &TConfig{
+		File:                  cfg,
 		DebugMode:             false,
 		LoggerLevel:           4,
 		RecoverPanic:          true,
 		PrintRouterTree:       true,
-		Host:                  "0.0.0.0",
+		Host:                  "localhost",
 		Port:                  16888,
+		EnabledTLS:            false,
+		TLSCertFile:           "",
+		TLSKeyFile:            "",
 		DefaultDateFormat:     "2006-01-02",
 		DefaultDateTimeFormat: "2006-01-02 15:04:05",
 	}
-	config.LoadFromFile(file_name)
-	config.MapTo(config)
+
+	if len(file_name) != 0 {
+		config.LoadFromFile(file_name[0])
+		config.MapTo(config)
+	}
+
 	/*
 			section := config.Section("logger")
 			LoggerLevel = section.Key("level").MustInt(4)                  // 日志等级
@@ -142,7 +155,11 @@ func NewConfig(file_name string) *TConfig {
 	return config
 }
 
+// 初始化
 func (self *TConfig) Init() {
+	if self.File == nil {
+		self.LoadFromFile(CONFIG_FILE_NAME)
+	}
 }
 
 func (self *TConfig) LoadFromFile(file_name string) {
@@ -151,21 +168,14 @@ func (self *TConfig) LoadFromFile(file_name string) {
 	}
 
 	// STEP:保存数据
-	var err error
 	self.fileName = file_name
 	self.filePath = filepath.Join(AppPath, file_name)
-	self.File, err = ini.Load(self.filePath)
+	err := self.File.Append(self.filePath)
 	if err != nil {
-		self.File = ini.Empty()
-		sec, err := self.NewSection("server")
-		if err != nil {
-
-		}
-		sec.ReflectFrom(self)
-		//self.ReflectFrom(self)
-		self.Save()
-		logger.Err("Fail to parse 'config.ini': %v", err)
+		logger.Err("Load ")
 	}
+	//self.File, err = ini.Load(self.filePath)
+
 }
 
 func (self *TConfig) Reload() bool {
@@ -179,6 +189,7 @@ func (self *TConfig) Reload() bool {
 }
 
 func (self *TConfig) Save() error {
+	logger.Dbg("save", self.filePath)
 	/*section := self.Section("logger")
 	LoggerLevel = section.Key("level").SetValue(LoggerLevel)                   // 日志等级
 	RecoverPanic = section.Key("enabled_recover_panic").SetValue(RecoverPanic) // recover 时 panic
@@ -196,8 +207,7 @@ func (self *TConfig) Save() error {
 		JsDir = section.Key("js_dir").SetValue(JsDir)
 		ImgDir = section.Key("img_dir").SetValue(ImgDir)
 	*/
-
-	return self.SaveTo(self.fileName)
+	return self.SaveTo(self.filePath)
 }
 
 func (self *TConfig) FileName() string {

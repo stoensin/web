@@ -10,3 +10,7 @@ var (
 
 func init() {
 }
+
+func Logger() *log.TLogger {
+	return logger
+}
