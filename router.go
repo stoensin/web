@@ -21,7 +21,7 @@ import (
 
 /*
 	Router 负责把所有的URL映射出去
-	@路由地址坚决不使用自动映射 不区分任何Restful等架构
+	@路由地址坚决不使用自动映射 不区分任何Restful等架构 如有必要CTL+C -> CTL+V 添加对应POST,GET,DELETE路由
 	1.提供全局变量操作
 	2.提供路由管理
 	3.处理路由调用
@@ -42,7 +42,7 @@ const (
 type (
 	RouteType byte
 
-	// 路由节点绑定的 方法(Handler)
+	// 路由节点绑定的控制器 func(Handler)
 	TMethodType struct {
 		Name      string         // 名称
 		Func      reflect.Value  // 方法本体
@@ -217,7 +217,6 @@ func (self *TRouter) Init() {
 	if self.Server.Config.PrintRouterTree {
 		self.tree.PrintTrees()
 	}
-
 }
 
 // 注册功能模块到路由器
@@ -260,9 +259,6 @@ func (self *TRouter) RegisterMiddleware(aMd ...IMiddleware) {
 		}
 		lName := lType.String()
 		self.middleware.Add(lName, m)
-		//lName := strings.Split(lType.String(), ".")
-		//self.middleware.Add(lName[len(lName)-1], m)
-		//Trace("RegisterMiddleware:", lName)
 	}
 
 }
@@ -287,9 +283,7 @@ func (self *TRouter) safelyCall(function reflect.Value, args []reflect.Value, hd
 		if err := recover(); err != nil {
 			if self.Server.Config.RecoverPanic { //是否绕过错误处理直接关闭程序
 				self.routePanic(hd, aActionValue)
-				//e = err
-				//resp = nil
-				logger.ErrLn("Handler crashed with error : ", err)
+
 				for i := 1; ; i++ {
 					_, file, line, ok := runtime.Caller(i)
 					if !ok {
@@ -298,17 +292,17 @@ func (self *TRouter) safelyCall(function reflect.Value, args []reflect.Value, hd
 					logger.ErrLn(file, line)
 				}
 			} else {
-				// go back to panic
-				//logger.WarnLn("Panic:SafelyCall")
 				logger.Panic("", err)
 			}
 		}
 	}()
-	//调用函数 >>>输出HTML数据
+
+	//调用控制器函数 >>>输出HTML数据
 	function.Call(args)
 }
 
-// 问题1:
+// TODO 有待优化
+// 执行静态文件路由
 func (self *TRouter) routeStatic(req *http.Request, w *TResponseWriter) {
 	var lFilePath string
 	lPath, lFileName := filepath.Split(req.URL.Path) //products/js/base.js
@@ -448,7 +442,6 @@ func (self *TRouter) routeBefore(hd *THandler, aActionValue reflect.Value) {
 		lNew            interface{}
 		ml              IMiddleware
 	)
-	//self.Server.Logger.DbgLn("Name  self.middleware.names", self.middleware.Names)
 	for _, key := range self.middleware.Names {
 		// @:直接返回 放弃剩下的Handler
 		if hd.Response.Written() {
@@ -623,7 +616,6 @@ func (self *TRouter) routePanic(hd *THandler, aActionValue reflect.Value) {
 		// 重复斌执行上面 遗漏的
 		for key, ml := range self.middleware.middlewares { // Action结构下的中间件
 			if !lNameLst[key] && ml != nil {
-				//Warn("lNameLst", key, ml)
 				ml.Panic(aActionValue.Interface(), hd)
 			}
 		}
@@ -911,6 +903,7 @@ func (self *TRouter) routeProxy(route *TRoute, param Params, req *http.Request, 
 	self.proxy_handlerPool.Put(lHandler)
 }
 
+// 显示被调用的路由
 func (self *TRouter) ShowRoute(sw bool) {
 	self.show_route = sw
 }

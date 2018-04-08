@@ -1,9 +1,11 @@
-# web
+# webgo
 a golang web framework for vectors ERP system
+
+框架提供关于Http服务器端最精简逻辑实现,理论上可以兼容大部分其他框架中间件(需要小量修改)
 
 ##QQ Group 151120790
 
-	#模板全局默认变量
+	服务器目录树
 	App
 	│
 	├─module 应用模块目录
