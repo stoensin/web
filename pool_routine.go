@@ -4,6 +4,9 @@ import (
 	"fmt"
 )
 
+/*
+  废弃
+*/
 type (
 	// Task Interface
 	ITask interface {

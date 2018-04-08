@@ -1,12 +1,5 @@
 package web
 
-/*
-	Router 负责把所有的URL映射出去
-	1.提供全局变量操作
-	2.提供路由管理
-	3.处理路由调用
-*/
-
 import (
 	"context"
 	//_template "html/template"
@@ -21,9 +14,18 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"vectors/utils"
-	"vectors/web/template"
+
+	"github.com/VectorsOrigin/template"
+	"github.com/VectorsOrigin/utils"
 )
+
+/*
+	Router 负责把所有的URL映射出去
+	@路由地址坚决不使用自动映射 不区分任何Restful等架构
+	1.提供全局变量操作
+	2.提供路由管理
+	3.处理路由调用
+*/
 
 const (
 	ROUTER_VER = "1.2.0"

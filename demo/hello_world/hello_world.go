@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
-	"vectors/web"
+
+	"github.com/VectorsOrigin/web"
 )
 
 type (
 	ctrls struct {
+		//这里写中间件
 	}
 )
 

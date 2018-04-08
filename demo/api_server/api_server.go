@@ -3,7 +3,8 @@ package main
 import (
 	"fmt"
 	"strings"
-	"vectors/web"
+
+	"github.com/VectorsOrigin/web"
 )
 
 func Post(hd *web.THandler) {

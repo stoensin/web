@@ -1,31 +1,31 @@
 package web
 
-/*
-	Handler 负责把处理URL调用的过程程序
-*/
 import (
+	"bytes"
 	"crypto/tls"
+	"encoding/json"
+	"fmt"
 	"io"
+	"io/ioutil"
+	"mime"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
 	"sync"
 	"time"
 
-	"fmt"
-	"io/ioutil"
-	"mime"
-	"net/http"
-	"net/url"
-	"path/filepath"
-
-	"bytes"
-	"encoding/json"
-	"reflect"
-	"strings"
-	//"vectors/logger"
-	"vectors/utils"
-	"vectors/web/template"
+	"github.com/VectorsOrigin/template"
+	"github.com/VectorsOrigin/utils"
 )
+
+/*
+	Handler 负责处理控制器Request,Response的数据处理和管理
+
+*/
 
 const (
 	HANDLER_VER = "1.2.0"

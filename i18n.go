@@ -14,6 +14,9 @@ import (
 	"vectors/utils"
 )
 
+/*
+  废弃 由中间件实现 保留代码
+*/
 type TI18n struct {
 	Name            string //名称
 	localeDir       string //目录

@@ -14,10 +14,16 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
-	//"vectors/logger"
-	"vectors/utils"
+
+	"github.com/VectorsOrigin/utils"
 )
 
+/*
+	module 负责管理服务器目录架构和路由集等管理
+	@每个服务程序可以看作是一个module
+
+
+*/
 type (
 	// 提供普通接口
 	IModule interface {

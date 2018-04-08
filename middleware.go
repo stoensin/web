@@ -1,5 +1,10 @@
 package web
 
+import (
+	"fmt"
+	"sync"
+)
+
 /**
 中间件控制器
 
@@ -15,11 +20,6 @@ Sample:
 		}
 
 */
-
-import (
-	"fmt"
-	"sync"
-)
 
 var (
 	Middleware = TMiddlewareManager{}

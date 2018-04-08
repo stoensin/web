@@ -5,18 +5,30 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"vectors/utils"
+
+	"github.com/VectorsOrigin/utils"
 )
 
+/*
+	tree 负责路由树的解析,排序,匹配
+	实现前面加类型
+	'/web/content/<string:xmlid>',
+	'/web/content/<string:xmlid>/<string:filename>',
+	'/web/content/<int:id>',
+	'/web/content/<int:id>/<string:filename>',
+	'/web/content/<int:id>-<string:unique>',
+	'/web/content/<int:id>-<string:unique>/<string:filename>',
+	'/web/content/<string:model>/<int:id>/<string:field>',
+	'/web/content/<string:model>/<int:id>/<string:field>/<string:filename>'
+*/
 const (
-	StaticNode  NodeType = iota // static, should equal
-	VariantNode                 // named node, match a non-/ is ok
-	AnyNode                     // catch-all node, match any
-	RegexpNode                  // regex node, should match
-
-	AllType    ContentType = iota
-	NumberType             // 数字内容
-	CharType               // 字母内容
+	StaticNode  NodeType    = iota // static, should equal
+	VariantNode                    // named node, match a non-/ is ok
+	AnyNode                        // catch-all node, match any
+	RegexpNode                     // regex node, should match
+	AllType     ContentType = iota
+	NumberType
+	CharType
 )
 
 var (
@@ -44,35 +56,26 @@ type (
 	Params []param
 
 	// 使用Sort 接口自动排序
-	TOrder []*TNode
+	TSubNodes []*TNode
 
 	TNode struct {
 		Type        NodeType
 		ContentType ContentType
-		Children    TOrder
+		Children    TSubNodes
 		//StaticChild  map[string]*TNode
 		//VariantChild map[string]*TNode
 		//RegexpChild  map[string]*TNode //[]*TNode
-		Text  string // Path string /web/
-		Path  string
-		Route *TRoute
-		//Left         string            // 左XX（
-		//Middle       string
-		//Right        string
-		//Path2        string
-		//IsLast bool
-		//IsRoot bool
-
+		Text   string // Path string /web/
+		Path   string
+		Route  *TRoute
 		Level  int // #动态Node排序等级 /.../ 之间的Nodes越多等级越高
 		regexp *regexp.Regexp
 	}
 
 	TTree struct {
-		Text string
-		Root map[string]*TNode
-
+		Text       string
+		Root       map[string]*TNode
 		IgnoreCase bool
-
 		//lock sync.RWMutex
 	}
 )
@@ -99,17 +102,17 @@ func (p *Params) SetParams(params []param) {
 	*p = params
 }
 
-func (self TOrder) Len() int {
+func (self TSubNodes) Len() int {
 	return len(self)
 }
 
-func (self TOrder) Swap(i, j int) {
+func (self TSubNodes) Swap(i, j int) {
 	self[i], self[j] = self[j], self[i]
 }
 
 // static route will be put the first, so it will be match first.
 // two static route, content longer is first.
-func (self TOrder) Less(i, j int) bool {
+func (self TSubNodes) Less(i, j int) bool {
 	if self[i].Type == StaticNode {
 		if self[j].Type == StaticNode {
 			return len(self[i].Text) > len(self[j].Text)
@@ -132,7 +135,7 @@ func NewRouteTree() *TTree {
 	}
 	for _, m := range HttpMethods {
 		lTree.Root[m] = &TNode{
-			Children: TOrder{},
+			Children: TSubNodes{},
 		}
 	}
 	return lTree
@@ -144,12 +147,12 @@ func NewRouteTree() *TTree {
 	Result: @ Nodes List
 	        @ is it dyn route
 */
-func (r *TTree) parsePath(aPath string) (nodes []*TNode, isDyn bool) {
-	if aPath == "" {
+func (r *TTree) parsePath(path string) (nodes []*TNode, isDyn bool) {
+	if path == "" {
 		panic("echo: path cannot be empty")
 	}
-	if aPath[0] != '/' {
-		aPath = "/" + aPath
+	if path[0] != '/' {
+		path = "/" + path
 	}
 
 	var (
@@ -163,19 +166,19 @@ func (r *TTree) parsePath(aPath string) (nodes []*TNode, isDyn bool) {
 	// 默认
 	nodes = make([]*TNode, 0)
 	isDyn = false
-	l := len(aPath)
+	l := len(path)
 	//j = i - 1 // 当i==0时J必须小于它
 	for ; i < l; i++ {
-		switch aPath[i] {
+		switch path[i] {
 		case '/':
 
 			{ // 创建Text:'/' Node
 				if bracket == 0 && i > j {
-					//if aPath[j] == '/' {
-					//	nodes = append(nodes, &TNode{Type: StaticNode, Text: string(aPath[j])})
+					//if path[j] == '/' {
+					//	nodes = append(nodes, &TNode{Type: StaticNode, Text: string(path[j])})
 					//}
 					//j++
-					nodes = append(nodes, &TNode{Type: StaticNode, Text: aPath[j:i]})
+					nodes = append(nodes, &TNode{Type: StaticNode, Text: path[j:i]})
 					j = i
 				}
 
@@ -194,13 +197,13 @@ func (r *TTree) parsePath(aPath string) (nodes []*TNode, isDyn bool) {
 			{
 				//fmt.Println(":")
 				var typ ContentType = AllType
-				//fmt.Println(":", bracket, aPath[j:i-bracket])
-				if aPath[i-1] == '(' { //#like (:var)
-					nodes = append(nodes, &TNode{Type: StaticNode, Text: aPath[j : i-bracket]})
+				//fmt.Println(":", bracket, path[j:i-bracket])
+				if path[i-1] == '(' { //#like (:var)
+					nodes = append(nodes, &TNode{Type: StaticNode, Text: path[j : i-bracket]})
 					bracket = 1
 				} else {
 					// #为变量区分数据类型
-					str := aPath[j : i-bracket] // #like /abc1(string|upper:var)
+					str := path[j : i-bracket] // #like /abc1(string|upper:var)
 					idx := strings.Index(str, "(")
 					if idx == -1 {
 						panic(fmt.Sprintf("expect a '(' near position %d~%d", j, i))
@@ -227,29 +230,29 @@ func (r *TTree) parsePath(aPath string) (nodes []*TNode, isDyn bool) {
 
 				if bracket == 1 {
 					// 开始记录Pos
-					for ; i < l && ')' != aPath[i]; i++ { // 移动Pos到） 遇到正则字符标记起
-						if start == -1 && utils.IsSpecialByte(aPath[i]) { // 如果是正则
+					for ; i < l && ')' != path[i]; i++ { // 移动Pos到） 遇到正则字符标记起
+						if start == -1 && utils.IsSpecialByte(path[i]) { // 如果是正则
 							start = i
 						}
 					}
-					if aPath[i] != ')' {
+					if path[i] != ')' {
 						panic("lack of )")
 					}
 
 					if start > -1 {
-						regex = aPath[start:i] //正则内容
+						regex = path[start:i] //正则内容
 					}
 				} else {
 					i = i + 1
-					for ; i < l && utils.IsAlnumByte(aPath[i]); i++ {
+					for ; i < l && utils.IsAlnumByte(path[i]); i++ {
 					}
 				}
 
 				if len(regex) > 0 { // 正则
-					node = &TNode{Type: RegexpNode, regexp: regexp.MustCompile("(" + regex + ")"), Text: aPath[j : i-len(regex)]}
+					node = &TNode{Type: RegexpNode, regexp: regexp.MustCompile("(" + regex + ")"), Text: path[j : i-len(regex)]}
 					nodes = append(nodes, node)
 				} else { // 变量
-					node = &TNode{Type: VariantNode, ContentType: typ, Text: aPath[j:i]}
+					node = &TNode{Type: VariantNode, ContentType: typ, Text: path[j:i]}
 					nodes = append(nodes, node)
 				}
 
@@ -258,7 +261,7 @@ func (r *TTree) parsePath(aPath string) (nodes []*TNode, isDyn bool) {
 				j = i
 
 				// 当计数器遇到/或者Url末尾时将记录保存于Node中
-				if target != nil && ((i == l) || (i != l && aPath[j+1] == '/')) {
+				if target != nil && ((i == l) || (i != l && path[j+1] == '/')) {
 					level++
 					target.Level = level
 					//fmt.Println("ok:", node.Text, target.Text, level)
@@ -276,7 +279,7 @@ func (r *TTree) parsePath(aPath string) (nodes []*TNode, isDyn bool) {
 				// 放置在 i == l 后 确保表达式2比1多一个层级
 				// @/(int:id1)-(:unique2)
 				// @/(:id3)-(:unique3)/(:filename)
-				if (i != l && aPath[j] != '/') || level != 0 {
+				if (i != l && path[j] != '/') || level != 0 {
 					if level == 0 {
 						target = node
 					}
@@ -287,17 +290,17 @@ func (r *TTree) parsePath(aPath string) (nodes []*TNode, isDyn bool) {
 			}
 		case '*':
 			{
-				nodes = append(nodes, &TNode{Type: StaticNode, Text: aPath[j : i-bracket]})
+				nodes = append(nodes, &TNode{Type: StaticNode, Text: path[j : i-bracket]})
 				j = i
 				//if bracket == 1 {
-				//	for ; i < l && ')' == aPath[i]; i++ {
+				//	for ; i < l && ')' == path[i]; i++ {
 				//	}
 				//} else {
 				i = i + 1
-				for ; i < l && utils.IsAlnumByte(aPath[i]); i++ {
+				for ; i < l && utils.IsAlnumByte(path[i]); i++ {
 				}
 				//}
-				nodes = append(nodes, &TNode{Type: AnyNode, Text: aPath[j:i]})
+				nodes = append(nodes, &TNode{Type: AnyNode, Text: path[j:i]})
 				isDyn = true    // 标记 Route 为动态
 				i = i + bracket // bracket=len(“)”)
 				j = i
@@ -315,7 +318,7 @@ func (r *TTree) parsePath(aPath string) (nodes []*TNode, isDyn bool) {
 
 	nodes = append(nodes, &TNode{
 		Type: StaticNode,
-		Text: aPath[j:i],
+		Text: path[j:i],
 	})
 
 	//fmt.Println("lNodes", len(lNodes))
@@ -468,11 +471,9 @@ func (r *TTree) Match(method string, url string) (*TRoute, Params) {
 	for _, n := range lRoot.Children {
 		e := r.matchNode(n, url, &lParams)
 		if e != nil {
-			////fmt.Println("matched:", e.Path, lParams)
 			return e.Route, lParams
 		}
 	}
-	////fmt.Println("not match:", url, lParams)
 	return nil, nil
 }
 
@@ -513,39 +514,10 @@ func validNodes(nodes []*TNode) bool {
 	return true
 }
 
-/*
- 1# 获得被Hook的Route
-pos: true 为插入Before 反之After
-
-*/
-func (self *TTree) __HookRoute(aMethod string, pos bool, aPath string, aRoute *TRoute) {
-
-	// 解析并创建为Nodes的List形式
-
-	lNodes, lIsDyn := self.parsePath(aPath)
-
-	// 标记为动态路由
-	aRoute.isDynRoute = lIsDyn // 即将Hook的新Route是动态地址
-
-	// 记录动作名称
-	aRoute.Action = lNodes[len(lNodes)].Text
-
-	// 获得匹配
-	lRoute, _ := self.Match(aMethod, aPath)
-	lRoute.CombineController(aRoute)
-
-	/*
-		// 执行Route 的所有Controllers
-		for action, ctrls := range lRoute.HookCtrl {
-			lRoute.Ctrls[action] = append(lRoute.MainCtrl, ctrls...) // 合并Ctrl 到一起
-		}
-	*/
-}
-
 // 添加路由到Tree
-func (self *TTree) AddRoute(aMethod, aPath string, aRoute *TRoute) {
+func (self *TTree) AddRoute(aMethod, path string, aRoute *TRoute) {
 	// 解析并创建为Nodes的List形式
-	lNodes, lIsDyn := self.parsePath(aPath)
+	lNodes, lIsDyn := self.parsePath(path)
 
 	// 标记为动态路由
 	aRoute.isDynRoute = lIsDyn // 即将Hook的新Route是动态地址
@@ -554,17 +526,14 @@ func (self *TTree) AddRoute(aMethod, aPath string, aRoute *TRoute) {
 	lNode := lNodes[len(lNodes)-1]
 	aRoute.Action = lNode.Text // 赋值Action
 	lNode.Route = aRoute
-	lNode.Path = aPath
+	lNode.Path = path
 	// 验证合法性
 	if !validNodes(lNodes) {
-		panic(fmt.Sprintln("express", aPath, "is not supported"))
+		logger.Panic("express %s is not supported", path)
 	}
-	////fmt.Println("self.Root", self.Root, aMethod, lNodes)
+
 	// 插入该节点到Tree
 	self.addnodes(aMethod, lNodes, false)
-	//r.printTrees()
-
-	//aRoute.Ctrls[aRoute.Action] = aRoute.MainCtrl // 合并Ctrl 到一起
 }
 
 func (self *TTree) conbine(aDes, aSrc *TNode) {
@@ -693,16 +662,3 @@ func (self *TNode) Equal(o *TNode) bool {
 	}
 	return true
 }
-
-/*
-TODO
-实现前面加类型
-'/web/content/<string:xmlid>',
-'/web/content/<string:xmlid>/<string:filename>',
-'/web/content/<int:id>',
-'/web/content/<int:id>/<string:filename>',
-'/web/content/<int:id>-<string:unique>',
-'/web/content/<int:id>-<string:unique>/<string:filename>',
-'/web/content/<string:model>/<int:id>/<string:field>',
-'/web/content/<string:model>/<int:id>/<string:field>/<string:filename>'
-*/

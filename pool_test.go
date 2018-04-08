@@ -2,7 +2,6 @@ package web
 
 import (
 	"reflect"
-	//	"sync"
 	"testing"
 )
 

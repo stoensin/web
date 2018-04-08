@@ -4,13 +4,14 @@ import (
 	//	"os"
 	//	"path"
 	"path/filepath"
-	"vectors/utils"
 
+	"github.com/VectorsOrigin/utils"
 	"github.com/go-ini/ini"
 )
 
 /*
-	Config 负责设置服务器
+	Config 负责服务器配置
+	@使用INI作为配置格式是为了方便使用该框架的其他程序可以向同一个配置文件添加扩展选项
 */
 
 type (

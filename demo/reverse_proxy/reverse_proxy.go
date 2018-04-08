@@ -1,7 +1,7 @@
 package main
 
 import (
-	"vectors/web"
+	"github.com/VectorsOrigin/web"
 )
 
 type (

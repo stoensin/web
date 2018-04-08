@@ -1,12 +1,24 @@
 package web
 
+import (
+	"fmt"
+	"net/http"
+	"os"
+	"path"
+	"strings"
+
+	log "github.com/VectorsOrigin/logger"
+	"github.com/VectorsOrigin/template"
+	"github.com/VectorsOrigin/utils"
+)
+
 /*
 	#模板全局默认变量
 		App
 		│
 		├─module 应用模块目录
 		│  ├─web 模块目录
-		│  │  ├─staric 静态资源目录
+		│  │  ├─static 静态资源目录
 		│  │  │   ├─uploads 上传根目录
 		│  │  │   ├─lib 资源库文件目录(常用作前端框架库)
 		│  │  │   └─src 资源文件
@@ -23,7 +35,7 @@ package web
 		│  │
 		│  └─... 扩展的可装卸功能模块或插件
 		│
-		├─staric 静态资源目录
+		├─static 静态资源目录
 		│  ├─uploads 上传根目录
 		│  ├─lib 资源库文件目录(常用作前端框架库)
 		│  └─src 资源文件
@@ -36,18 +48,6 @@ package web
 		├─main.go 主文件
 		└─main.ini 配置文件
 */
-
-import (
-	"fmt"
-	"net/http"
-	"os"
-	"path"
-	"strings"
-	"vectors/utils"
-	"vectors/web/template"
-
-	log "github.com/VectorsOrigin/logger"
-)
 
 // 用于标记服务器创建标记是否重复
 var ServerNames []string
