@@ -11,7 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"vectors/utils"
+
+	"github.com/VectorsOrigin/utils"
 )
 
 /*

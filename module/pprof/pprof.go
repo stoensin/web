@@ -11,8 +11,9 @@ import (
 	"runtime/pprof"
 	"strconv"
 	"time"
-	"vectors/logger"
-	"vectors/web"
+
+	"github.com/VectorsOrigin/logger"
+	"github.com/VectorsOrigin/web"
 )
 
 var (

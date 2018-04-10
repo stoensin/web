@@ -773,6 +773,7 @@ func (self *TRouter) routeHandler(req *http.Request, w *TResponseWriter) {
 	return
 }
 
+// TODO 将代理移动至Handler里实现
 func (self *TRouter) routeProxy(route *TRoute, param Params, req *http.Request, rw *TResponseWriter) {
 	lHandler := self.proxy_handlerPool.Get().(*TProxyHandler)
 	lHandler.connect(rw, req, self, route)
