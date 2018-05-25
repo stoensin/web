@@ -133,11 +133,13 @@ func NewRouteTree() *TTree {
 	lTree := &TTree{
 		Root: make(map[string]*TNode),
 	}
+	
+	/* 
 	for _, m := range HttpMethods {
 		lTree.Root[m] = &TNode{
 			Children: TSubNodes{},
 		}
-	}
+	}*/
 	return lTree
 }
 
@@ -615,6 +617,14 @@ func (self *TTree) addnodes(aMethod string, aNodes []*TNode, aIsHook bool) {
 	//fmt.Println("self.Root", self.Root)
 	// 获得对应方法[POST,GET...]
 	cn := self.Root[aMethod]
+	if cn == nil {
+		// 初始化Root node
+		cn = &TNode{
+			Children: TSubNodes{},
+		}
+		self.Root[aMethod] = cn
+	}
+
 	var p *TNode = cn // 复制方法对应的Root
 
 	// 层级插入Nodes的Node到Root
@@ -647,10 +657,10 @@ func printNode(i int, node *TNode) {
 }
 
 func (self *TTree) PrintTrees() {
-	for _, method := range HttpMethods {
-		if len(self.Root[method].Children) > 0 {
+	for method, node := range self.Root {
+		if len(node.Children) > 0 {
 			fmt.Println(method)
-			printNode(1, self.Root[method])
+			printNode(1, node)
 			fmt.Println()
 		}
 	}
