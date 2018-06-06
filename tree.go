@@ -55,6 +55,9 @@ type (
 
 	Params []param
 
+// 配置函数接口
+ ConfigOption func(*TTree)
+
 	// 使用Sort 接口自动排序
 	TSubNodes []*TNode
 
@@ -76,6 +79,7 @@ type (
 		Text       string
 		Root       map[string]*TNode
 		IgnoreCase bool
+		DelimitChar byte // Delimit Char xxx.xxx
 		//lock sync.RWMutex
 	}
 )
@@ -129,17 +133,22 @@ func (self TSubNodes) Less(i, j int) bool {
 	return i < j
 }
 
-func NewRouteTree() *TTree {
+func NewRouteTree(config_fn ...ConfigOption) *TTree {
 	lTree := &TTree{
 		Root: make(map[string]*TNode),
+		DelimitChar:'/',
 	}
-	
-	/* 
-	for _, m := range HttpMethods {
-		lTree.Root[m] = &TNode{
-			Children: TSubNodes{},
+
+	/*
+		for _, m := range HttpMethods {
+			lTree.Root[m] = &TNode{
+				Children: TSubNodes{},
+			}
+		}*/
+		
+		for _,cfg:=range config_fn{
+			cfg(lTree)
 		}
-	}*/
 	return lTree
 }
 
@@ -153,7 +162,7 @@ func (r *TTree) parsePath(path string) (nodes []*TNode, isDyn bool) {
 	if path == "" {
 		panic("echo: path cannot be empty")
 	}
-	if path[0] != '/' {
+	if r.DelimitChar=='/' && path[0] != '/' {
 		path = "/" + path
 	}
 
@@ -172,7 +181,8 @@ func (r *TTree) parsePath(path string) (nodes []*TNode, isDyn bool) {
 	//j = i - 1 // 当i==0时J必须小于它
 	for ; i < l; i++ {
 		switch path[i] {
-		case '/':
+			case r.DelimitChar:
+		//case '/':
 
 			{ // 创建Text:'/' Node
 				if bracket == 0 && i > j {
@@ -263,7 +273,7 @@ func (r *TTree) parsePath(path string) (nodes []*TNode, isDyn bool) {
 				j = i
 
 				// 当计数器遇到/或者Url末尾时将记录保存于Node中
-				if target != nil && ((i == l) || (i != l && path[j+1] == '/')) {
+				if target != nil && ((i == l) || (i != l && path[j+1] == r.DelimitChar)) {
 					level++
 					target.Level = level
 					//fmt.Println("ok:", node.Text, target.Text, level)
@@ -281,7 +291,7 @@ func (r *TTree) parsePath(path string) (nodes []*TNode, isDyn bool) {
 				// 放置在 i == l 后 确保表达式2比1多一个层级
 				// @/(int:id1)-(:unique2)
 				// @/(:id3)-(:unique3)/(:filename)
-				if (i != l && path[j] != '/') || level != 0 {
+				if (i != l && path[j] != r.DelimitChar) || level != 0 {
 					if level == 0 {
 						target = node
 					}
@@ -330,7 +340,6 @@ func (r *TTree) parsePath(path string) (nodes []*TNode, isDyn bool) {
 func (r *TTree) matchNode(aNode *TNode, aUrl string, aParams *Params) *TNode {
 	var retnil bool
 	if aNode.Type == StaticNode { // 静态节点
-
 		if strings.HasPrefix(aUrl, aNode.Text) {
 			//fmt.Println("J态", aUrl, " | ", aNode.Text[1:])
 			if len(aUrl) == len(aNode.Text) {
@@ -369,7 +378,7 @@ func (r *TTree) matchNode(aNode *TNode, aUrl string, aParams *Params) *TNode {
 
 	} else if aNode.Type == VariantNode { // 变量节点
 		// # 消除path like /abc 的'/'
-		idx := strings.IndexByte(aUrl, '/')
+		idx := strings.IndexByte(aUrl, r.DelimitChar)
 		//fmt.Println("D态", aUrl, " | ", aNode.Text[1:], idx)
 		if idx == 0 { // #fix错误if idx > -1 {
 			for _, c := range aNode.Children {
@@ -398,7 +407,7 @@ func (r *TTree) matchNode(aNode *TNode, aUrl string, aParams *Params) *TNode {
 			idx := strings.Index(aUrl, c.Text) // #匹配前面检索到的/之前的字符串
 			//fmt.Println("Index", idx, aUrl, c.Text, aUrl[:idx])
 			if idx > -1 {
-				if len(aUrl[:idx]) > 1 && strings.Index(aUrl[:idx], "/") > -1 {
+				if len(aUrl[:idx]) > 1 && strings.IndexByte(aUrl[:idx], r.DelimitChar) > -1 {
 					retnil = true
 					continue
 				}
@@ -432,7 +441,7 @@ func (r *TTree) matchNode(aNode *TNode, aUrl string, aParams *Params) *TNode {
 		//	*aParams = append(*aParams, param{aNode.Text[1:], aUrl})
 		//	return aNode
 		//}
-		idx := strings.IndexByte(aUrl, '/')
+		idx := strings.IndexByte(aUrl, r.DelimitChar)
 		if idx > -1 {
 			if aNode.regexp.MatchString(aUrl[:idx]) {
 				for _, c := range aNode.Children {
@@ -469,7 +478,8 @@ func (r *TTree) matchNode(aNode *TNode, aUrl string, aParams *Params) *TNode {
 
 func (r *TTree) Match(method string, url string) (*TRoute, Params) {
 	lRoot := r.Root[method]
-	var lParams = make(Params, 0, strings.Count(url, "/"))
+ 
+	var lParams = make(Params, 0, strings.Count(url, string(r.DelimitChar)))
 	for _, n := range lRoot.Children {
 		e := r.matchNode(n, url, &lParams)
 		if e != nil {
@@ -538,6 +548,7 @@ func (self *TTree) AddRoute(aMethod, path string, aRoute *TRoute) {
 	self.addnodes(aMethod, lNodes, false)
 }
 
+// conbine 2 node together
 func (self *TTree) conbine(aDes, aSrc *TNode) {
 	var lNode *TNode
 
@@ -573,14 +584,20 @@ func (self *TTree) conbine(aDes, aSrc *TNode) {
 	}
 }
 
+// conbine 2 tree together
 func (self *TTree) Conbine(aTree *TTree) *TTree {
-	for method, node := range self.Root {
-		//for _, dnode := range node.Children {
-		for _, snode := range aTree.Root[method].Children {
-			self.conbine(node, snode)
+	for method, snode := range aTree.Root {
+		// 如果主树没有该方法叉则直接移植
+		if _, has := self.Root[method]; !has {
+			self.Root[method] = snode
+		} else {
+			// 采用逐个添加
+			for _, node := range self.Root[method].Children {
+				self.conbine(node, snode)
+			}
 		}
-		//}
 	}
+
 	return self
 }
 
@@ -618,6 +635,7 @@ func (self *TTree) addnodes(aMethod string, aNodes []*TNode, aIsHook bool) {
 	// 获得对应方法[POST,GET...]
 	cn := self.Root[aMethod]
 	if cn == nil {
+
 		// 初始化Root node
 		cn = &TNode{
 			Children: TSubNodes{},
